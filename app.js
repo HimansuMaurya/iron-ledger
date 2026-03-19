@@ -127,6 +127,7 @@ const downloadButton = document.getElementById("downloadButton");
 const importInput = document.getElementById("importInput");
 const importButton = document.getElementById("importButton");
 const dashboardGrid = document.getElementById("dashboardGrid");
+const syncHealthCard = document.getElementById("syncHealthCard");
 const weightChart = document.getElementById("weightChart");
 const weightTrendText = document.getElementById("weightTrendText");
 const storageStatus = document.getElementById("storageStatus");
@@ -531,6 +532,7 @@ function renderDashboard() {
       ? "Supabase configured. Finish email sign-in to enable cloud sync."
       : "Local-only mode. Use backup export if you want a manual copy.";
   storageStatus.textContent = `${syncMode} Local changes save instantly on this phone; cloud sync runs automatically a moment later when you are signed in and online.`;
+  renderSyncHealthCard();
 
   weightTrendText.textContent = buildWeightTrendText(avg, previousAvg, latestWeight);
   renderWeightChart(weightEntries.slice(0, 14).reverse().map((entry) => entry.value));
@@ -566,6 +568,34 @@ function renderDashboard() {
       }),
     );
   });
+}
+
+function renderSyncHealthCard() {
+  const health = getSyncHealth();
+  syncHealthCard.innerHTML = `
+    <div class="sync-health-top">
+      <div>
+        <p class="eyebrow">Sync Health</p>
+        <h3 class="sync-health-title">${health.title}</h3>
+      </div>
+      <span class="sync-health-status">${health.badge}</span>
+    </div>
+    <p class="sync-health-copy">${health.message}</p>
+    <div class="sync-health-grid">
+      <div class="sync-health-metric">
+        <p class="sync-health-label">Last Local Save</p>
+        <p class="sync-health-value">${health.lastLocalSave}</p>
+      </div>
+      <div class="sync-health-metric">
+        <p class="sync-health-label">Last Cloud Sync</p>
+        <p class="sync-health-value">${health.lastCloudSync}</p>
+      </div>
+      <div class="sync-health-metric">
+        <p class="sync-health-label">Remote Snapshot</p>
+        <p class="sync-health-value">${health.remoteSnapshot}</p>
+      </div>
+    </div>
+  `;
 }
 
 function renderSyncStatus() {
@@ -834,6 +864,97 @@ function buildBackupPayload() {
   };
 }
 
+function getSyncHealth() {
+  const localStamp = state.meta?.lastModifiedAt;
+  const cloudStamp = state.meta?.lastSyncedAt;
+  const remoteStamp = state.sync?.lastRemoteUpdatedAt;
+  const configured = Boolean(state.sync?.projectUrl && state.sync?.anonKey);
+  const signedIn = Boolean(state.sync?.user);
+  const online = navigator.onLine;
+
+  if (!configured) {
+    return {
+      title: "Local-only mode",
+      badge: "local",
+      message:
+        "This phone saves instantly, but nothing is copied to the cloud until you configure Supabase sync.",
+      lastLocalSave: formatSyncTime(localStamp),
+      lastCloudSync: "Not set",
+      remoteSnapshot: "Not set",
+    };
+  }
+
+  if (!signedIn) {
+    return {
+      title: "Sync configured, sign-in pending",
+      badge: "pending",
+      message:
+        "Project settings are saved locally. Finish the magic-link sign-in on this phone to enable automatic cloud sync.",
+      lastLocalSave: formatSyncTime(localStamp),
+      lastCloudSync: formatSyncTime(cloudStamp),
+      remoteSnapshot: formatSyncTime(remoteStamp),
+    };
+  }
+
+  if (!online) {
+    return {
+      title: "Offline, waiting to sync",
+      badge: "offline",
+      message:
+        "Your changes are safe on this phone. Cloud sync will resume automatically when the device is back online.",
+      lastLocalSave: formatSyncTime(localStamp),
+      lastCloudSync: formatSyncTime(cloudStamp),
+      remoteSnapshot: formatSyncTime(remoteStamp),
+    };
+  }
+
+  if (localStamp && remoteStamp && localStamp > remoteStamp) {
+    return {
+      title: "This phone is ahead of the cloud",
+      badge: "ahead",
+      message:
+        "You have newer local changes than the latest cloud snapshot. The app should auto-sync them shortly, or you can tap Sync Now.",
+      lastLocalSave: formatSyncTime(localStamp),
+      lastCloudSync: formatSyncTime(cloudStamp),
+      remoteSnapshot: formatSyncTime(remoteStamp),
+    };
+  }
+
+  if (remoteStamp && localStamp && remoteStamp > localStamp) {
+    return {
+      title: "Cloud snapshot is newer",
+      badge: "behind",
+      message:
+        "A newer snapshot exists in the cloud than on this phone. Use Pull Cloud Snapshot if this device should catch up.",
+      lastLocalSave: formatSyncTime(localStamp),
+      lastCloudSync: formatSyncTime(cloudStamp),
+      remoteSnapshot: formatSyncTime(remoteStamp),
+    };
+  }
+
+  if (cloudStamp || remoteStamp) {
+    return {
+      title: "This phone is in sync",
+      badge: "synced",
+      message:
+        "Local and cloud timestamps match closely enough that this device appears up to date.",
+      lastLocalSave: formatSyncTime(localStamp),
+      lastCloudSync: formatSyncTime(cloudStamp),
+      remoteSnapshot: formatSyncTime(remoteStamp),
+    };
+  }
+
+  return {
+    title: "Ready for first cloud backup",
+    badge: "ready",
+    message:
+      "You are signed in, but no cloud snapshot has been created yet. The next sync will create one.",
+    lastLocalSave: formatSyncTime(localStamp),
+    lastCloudSync: "Not set",
+    remoteSnapshot: "Not set",
+  };
+}
+
 function buildTrackerSnapshot() {
   return {
     weights: state.weights,
@@ -1010,6 +1131,7 @@ async function pullRemoteSnapshot({ preferRemote, userInitiated }) {
 function setSyncStatus(message) {
   state.sync.lastSyncMessage = message;
   saveState();
+  renderDashboard();
   renderSyncStatus();
 }
 
@@ -1043,6 +1165,13 @@ function formatDateTime(dateString) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(dateString));
+}
+
+function formatSyncTime(dateString) {
+  if (!dateString) {
+    return "Not set";
+  }
+  return formatDateTime(dateString);
 }
 
 function getDateString(date) {
