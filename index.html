@@ -36,6 +36,27 @@
       </header>
 
       <main class="layout">
+        <section class="panel dashboard-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Dashboard</p>
+              <h2>Progress Radar</h2>
+            </div>
+          </div>
+          <div id="dashboardGrid" class="dashboard-grid"></div>
+          <div class="chart-card">
+            <div class="chart-copy">
+              <p class="eyebrow">Bodyweight Trend</p>
+              <p id="weightTrendText" class="chart-text"></p>
+            </div>
+            <div id="weightChart" class="chart-shell"></div>
+          </div>
+          <div class="storage-note">
+            <p class="eyebrow">Storage</p>
+            <p id="storageStatus"></p>
+          </div>
+        </section>
+
         <section class="panel compact-panel">
           <div class="panel-heading">
             <div>
@@ -133,8 +154,10 @@
         <div class="quick-actions">
           <button class="ghost-button repeat-button" type="button">Repeat Last</button>
           <button class="ghost-button undo-button" type="button">Undo Last</button>
+          <button class="ghost-button cancel-edit-button" type="button" hidden>Cancel Edit</button>
         </div>
 
+        <p class="helper-text"></p>
         <div class="logged-sets"></div>
       </article>
     </template>

@@ -33,7 +33,9 @@ After the first load, the app is cached offline, so it should still open in the 
 
 - Tracks daily bodyweight
 - Tracks every set for the 6-day V-taper split
+- Lets you edit or delete logged sets if you mistype a number
 - Pre-fills weight and reps from the last matching session
+- Shows a dashboard for bodyweight trend and key lift progress
 - Stores everything in browser local storage
 - Exports and imports JSON backups
 
