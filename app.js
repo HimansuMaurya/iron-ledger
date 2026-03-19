@@ -1,4 +1,7 @@
-const STORAGE_KEY = "iron-ledger-v2";
+const STORAGE_KEY = "iron-ledger-v3";
+const LEGACY_KEYS = ["iron-ledger-v2", "iron-ledger-v1"];
+const SYNC_DEBOUNCE_MS = 1200;
+const SNAPSHOT_TABLE = "user_snapshots";
 
 const splitDays = [
   {
@@ -95,13 +98,18 @@ const splitDays = [
 ];
 
 const dashboardExercises = [
-  { id: "lat-pulldown", label: "Lat Pulldown", mode: "e1rm" },
-  { id: "incline-db-press-heavy", label: "Incline DB Press", mode: "e1rm" },
-  { id: "back-squat", label: "Back Squat", mode: "e1rm" },
-  { id: "romanian-deadlift", label: "Romanian Deadlift", mode: "e1rm" },
+  { id: "lat-pulldown", label: "Lat Pulldown" },
+  { id: "incline-db-press-heavy", label: "Incline DB Press" },
+  { id: "back-squat", label: "Back Squat" },
+  { id: "romanian-deadlift", label: "Romanian Deadlift" },
 ];
 
 const state = loadState();
+let supabase = null;
+let supabaseModule = null;
+let syncTimer = null;
+let syncInFlight = null;
+let suspendNextSync = false;
 
 const weightForm = document.getElementById("weightForm");
 const weightDate = document.getElementById("weightDate");
@@ -122,21 +130,43 @@ const dashboardGrid = document.getElementById("dashboardGrid");
 const weightChart = document.getElementById("weightChart");
 const weightTrendText = document.getElementById("weightTrendText");
 const storageStatus = document.getElementById("storageStatus");
+const syncForm = document.getElementById("syncForm");
+const supabaseUrlInput = document.getElementById("supabaseUrl");
+const supabaseAnonKeyInput = document.getElementById("supabaseAnonKey");
+const syncEmailInput = document.getElementById("syncEmail");
+const saveSyncConfigButton = document.getElementById("saveSyncConfigButton");
+const sendMagicLinkButton = document.getElementById("sendMagicLinkButton");
+const pullCloudButton = document.getElementById("pullCloudButton");
+const syncNowButton = document.getElementById("syncNowButton");
+const signOutButton = document.getElementById("signOutButton");
+const syncStatus = document.getElementById("syncStatus");
 
-initialize();
+await initialize();
 
-function initialize() {
+async function initialize() {
   const today = getDateString(new Date());
   weightDate.value = state.currentWeightDate || today;
   sessionDate.value = state.currentSessionDate || today;
   state.activeDayId = state.activeDayId || inferDayFromDate(sessionDate.value);
   state.ui = state.ui || {};
+  state.meta = state.meta || { lastModifiedAt: null, lastSyncedAt: null };
+  state.sync = state.sync || {
+    projectUrl: "",
+    anonKey: "",
+    email: "",
+    user: null,
+    lastRemoteUpdatedAt: null,
+    lastSyncMessage: "Local-only mode",
+  };
 
+  populateSyncInputs();
   renderTabs();
   renderWorkout();
   renderWeights();
   renderDashboard();
+  renderSyncStatus();
   bindEvents();
+  await initializeSupabase();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./service-worker.js").catch(() => {});
@@ -154,7 +184,7 @@ function bindEvents() {
 
     state.weights[date] = value;
     state.currentWeightDate = date;
-    saveState();
+    markLocalChange();
     renderWeights();
     renderDashboard();
     weightValue.value = "";
@@ -169,23 +199,19 @@ function bindEvents() {
   });
 
   exportButton.addEventListener("click", async () => {
-    const payload = JSON.stringify(state, null, 2);
+    const payload = JSON.stringify(buildBackupPayload(), null, 2);
     try {
       await navigator.clipboard.writeText(payload);
-      exportButton.textContent = "Copied";
-      setTimeout(() => {
-        exportButton.textContent = "Copy Backup JSON";
-      }, 1400);
+      flashButton(exportButton, "Copied");
     } catch {
-      exportButton.textContent = "Copy failed";
-      setTimeout(() => {
-        exportButton.textContent = "Copy Backup JSON";
-      }, 1400);
+      flashButton(exportButton, "Copy failed");
     }
   });
 
   downloadButton.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(buildBackupPayload(), null, 2)], {
+      type: "application/json",
+    });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `iron-ledger-backup-${getDateString(new Date())}.json`;
@@ -193,26 +219,139 @@ function bindEvents() {
     URL.revokeObjectURL(link.href);
   });
 
-  importButton.addEventListener("click", () => {
+  importButton.addEventListener("click", async () => {
     try {
       const imported = JSON.parse(importInput.value);
-      if (!imported || typeof imported !== "object") {
-        throw new Error("Invalid payload");
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeState(imported)));
-      window.location.reload();
+      replaceTrackerState(imported);
+      await initializeSupabase();
+      importInput.value = "";
+      flashButton(importButton, "Imported");
     } catch {
-      importButton.textContent = "Import failed";
-      setTimeout(() => {
-        importButton.textContent = "Import Backup";
-      }, 1400);
+      flashButton(importButton, "Import failed");
     }
   });
+
+  syncForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    state.sync.projectUrl = supabaseUrlInput.value.trim();
+    state.sync.anonKey = supabaseAnonKeyInput.value.trim();
+    state.sync.email = syncEmailInput.value.trim();
+    state.sync.user = null;
+    state.sync.lastSyncMessage = "Supabase config saved locally";
+    saveState();
+    await initializeSupabase();
+    renderSyncStatus();
+    flashButton(saveSyncConfigButton, "Saved");
+  });
+
+  sendMagicLinkButton.addEventListener("click", async () => {
+    if (!supabase) {
+      state.sync.lastSyncMessage = "Save your Supabase URL and anon key first";
+      renderSyncStatus();
+      return;
+    }
+    const email = syncEmailInput.value.trim();
+    if (!email) {
+      state.sync.lastSyncMessage = "Enter your email before requesting a magic link";
+      renderSyncStatus();
+      return;
+    }
+
+    setSyncStatus("Sending magic link...");
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.href,
+      },
+    });
+
+    if (error) {
+      setSyncStatus(`Magic link failed: ${error.message}`);
+      return;
+    }
+
+    state.sync.email = email;
+    saveState();
+    setSyncStatus("Magic link sent. Open it on this phone to finish sign-in.");
+  });
+
+  pullCloudButton.addEventListener("click", async () => {
+    await pullRemoteSnapshot({ preferRemote: true, userInitiated: true });
+  });
+
+  syncNowButton.addEventListener("click", async () => {
+    await pushRemoteSnapshot({ userInitiated: true });
+  });
+
+  signOutButton.addEventListener("click", async () => {
+    if (!supabase) {
+      return;
+    }
+    await supabase.auth.signOut();
+    state.sync.user = null;
+    state.sync.lastSyncMessage = "Signed out. Local data is still on this device.";
+    saveState();
+    renderSyncStatus();
+  });
+
+  window.addEventListener("online", () => {
+    setSyncStatus("Back online");
+    queueSync("Came back online");
+  });
+}
+
+async function initializeSupabase() {
+  const { projectUrl, anonKey } = state.sync;
+  if (!projectUrl || !anonKey) {
+    supabase = null;
+    renderSyncStatus();
+    return;
+  }
+
+  const { createClient } = await loadSupabaseModule();
+  supabase = createClient(projectUrl, anonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  state.sync.user = session?.user
+    ? { id: session.user.id, email: session.user.email || state.sync.email }
+    : null;
+  if (session?.user?.email) {
+    state.sync.email = session.user.email;
+  }
+  saveState();
+  renderSyncStatus();
+
+  supabase.auth.onAuthStateChange(async (event, sessionState) => {
+    state.sync.user = sessionState?.user
+      ? { id: sessionState.user.id, email: sessionState.user.email || state.sync.email }
+      : null;
+    if (sessionState?.user?.email) {
+      state.sync.email = sessionState.user.email;
+    }
+    saveState();
+    renderSyncStatus();
+
+    if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      await pullRemoteSnapshot({ preferRemote: false, userInitiated: false });
+    }
+  });
+
+  if (state.sync.user) {
+    await pullRemoteSnapshot({ preferRemote: false, userInitiated: false });
+  }
 }
 
 function renderTabs() {
   dayTabs.innerHTML = "";
-
   splitDays.forEach((day) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -281,12 +420,7 @@ function renderWorkout() {
 
     renderSetPills(loggedSets, entries, {
       onEdit: (index) => {
-        state.ui.editingSet = {
-          date,
-          dayId: day.id,
-          exerciseId: exercise.id,
-          setIndex: index,
-        };
+        state.ui.editingSet = { date, dayId: day.id, exerciseId: exercise.id, setIndex: index };
         saveState();
         renderWorkout();
       },
@@ -294,7 +428,7 @@ function renderWorkout() {
         const liveSession = getSession(date, day.id);
         liveSession.exercises[exercise.id].splice(index, 1);
         clearEditingIfTarget(date, day.id, exercise.id, index);
-        saveState();
+        markLocalChange();
         renderWorkout();
         renderDashboard();
       },
@@ -317,7 +451,7 @@ function renderWorkout() {
         liveSession.exercises[exercise.id].push({ weight, reps });
       }
 
-      saveState();
+      markLocalChange();
       renderWorkout();
       renderDashboard();
     });
@@ -329,13 +463,9 @@ function renderWorkout() {
       if (!last) {
         return;
       }
-      liveSession.exercises[exercise.id] = liveEntries;
-      liveSession.exercises[exercise.id].push({
-        weight: Number(last.weight),
-        reps: Number(last.reps),
-      });
+      liveEntries.push({ weight: Number(last.weight), reps: Number(last.reps) });
       state.ui.editingSet = null;
-      saveState();
+      markLocalChange();
       renderWorkout();
       renderDashboard();
     });
@@ -345,7 +475,7 @@ function renderWorkout() {
       const liveEntries = liveSession.exercises[exercise.id] || [];
       liveEntries.pop();
       state.ui.editingSet = null;
-      saveState();
+      markLocalChange();
       renderWorkout();
       renderDashboard();
     });
@@ -364,8 +494,8 @@ function renderWeights() {
   const entries = getWeightEntries();
   const avg = calculate7DayAverage(entries);
   avgWeight.textContent = avg ? `${avg.toFixed(1)} kg` : "-";
-
   weightHistory.innerHTML = "";
+
   entries.slice(0, 7).forEach((entry) => {
     const row = document.createElement("button");
     row.type = "button";
@@ -395,14 +525,17 @@ function renderDashboard() {
   const totalSessions = countSessions();
   const totalSets = countSets();
 
-  storageStatus.textContent =
-    "Data is saved instantly in this phone browser using local storage. There is no automatic cloud sync yet, so use backup export if you change phones or clear browser data.";
+  const syncMode = state.sync?.user
+    ? `Cloud sync enabled for ${state.sync.user.email || "your account"}`
+    : state.sync?.projectUrl
+      ? "Supabase configured. Finish email sign-in to enable cloud sync."
+      : "Local-only mode. Use backup export if you want a manual copy.";
+  storageStatus.textContent = `${syncMode} Local changes save instantly on this phone; cloud sync runs automatically a moment later when you are signed in and online.`;
 
   weightTrendText.textContent = buildWeightTrendText(avg, previousAvg, latestWeight);
   renderWeightChart(weightEntries.slice(0, 14).reverse().map((entry) => entry.value));
 
   dashboardGrid.innerHTML = "";
-
   const statCards = [
     {
       title: "Current Weight",
@@ -411,8 +544,7 @@ function renderDashboard() {
     },
     {
       title: "Weekly Change",
-      value:
-        avg && previousAvg ? `${formatSigned(avg - previousAvg)} kg` : "-",
+      value: avg && previousAvg ? `${formatSigned(avg - previousAvg)} kg` : "-",
       subtext: "Current 7-day avg vs previous 7-day block",
     },
     {
@@ -421,7 +553,6 @@ function renderDashboard() {
       subtext: `${totalSets} working sets captured`,
     },
   ];
-
   statCards.forEach((card) => dashboardGrid.appendChild(createInsightCard(card)));
 
   dashboardExercises.forEach((exercise) => {
@@ -434,6 +565,75 @@ function renderDashboard() {
         sparkValues: insight.sparkValues,
       }),
     );
+  });
+}
+
+function renderSyncStatus() {
+  populateSyncInputs();
+  const configured = Boolean(state.sync.projectUrl && state.sync.anonKey);
+  const signedIn = Boolean(state.sync.user);
+
+  sendMagicLinkButton.disabled = !configured;
+  pullCloudButton.disabled = !configured || !signedIn;
+  syncNowButton.disabled = !configured || !signedIn;
+  signOutButton.disabled = !configured || !signedIn;
+
+  const bits = [];
+  bits.push(configured ? "Supabase configured." : "Supabase not configured.");
+  bits.push(
+    signedIn
+      ? `Signed in as ${state.sync.user.email || state.sync.user.id}.`
+      : "Not signed in.",
+  );
+  if (state.sync.lastRemoteUpdatedAt) {
+    bits.push(`Last cloud snapshot ${formatDateTime(state.sync.lastRemoteUpdatedAt)}.`);
+  }
+  if (state.sync.lastSyncMessage) {
+    bits.push(state.sync.lastSyncMessage);
+  }
+  syncStatus.textContent = bits.join(" ");
+}
+
+function populateSyncInputs() {
+  supabaseUrlInput.value = state.sync?.projectUrl || "";
+  supabaseAnonKeyInput.value = state.sync?.anonKey || "";
+  syncEmailInput.value = state.sync?.email || "";
+}
+
+function renderWeightChart(values) {
+  if (values.length < 2) {
+    weightChart.innerHTML = "<div class=\"chart-empty\">Need at least 2 weigh-ins to draw a trend.</div>";
+    return;
+  }
+  weightChart.innerHTML = renderSparkline(values, 720, 160);
+}
+
+function renderSetPills(container, entries, actions) {
+  container.innerHTML = "";
+  if (!entries.length) {
+    const empty = document.createElement("div");
+    empty.className = "set-pill";
+    empty.innerHTML = "<span>Nothing logged yet</span><strong>Use last week’s load</strong>";
+    container.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((entry, index) => {
+    const pill = document.createElement("div");
+    pill.className = "set-pill set-pill-actions";
+    pill.innerHTML = `
+      <div class="set-pill-copy">
+        <span>Set ${index + 1}</span>
+        <strong>${entry.weight} kg x ${entry.reps}</strong>
+      </div>
+      <div class="set-pill-buttons">
+        <button class="mini-button edit-set-button" type="button">Edit</button>
+        <button class="mini-button delete-set-button" type="button">Delete</button>
+      </div>
+    `;
+    pill.querySelector(".edit-set-button").addEventListener("click", () => actions.onEdit(index));
+    pill.querySelector(".delete-set-button").addEventListener("click", () => actions.onDelete(index));
+    container.appendChild(pill);
   });
 }
 
@@ -465,44 +665,6 @@ function createInsightCard({ title, value, subtext, sparkValues = [] }) {
   return card;
 }
 
-function renderSetPills(container, entries, actions) {
-  container.innerHTML = "";
-
-  if (!entries.length) {
-    const empty = document.createElement("div");
-    empty.className = "set-pill";
-    empty.innerHTML = "<span>Nothing logged yet</span><strong>Use last week’s load</strong>";
-    container.appendChild(empty);
-    return;
-  }
-
-  entries.forEach((entry, index) => {
-    const pill = document.createElement("div");
-    pill.className = "set-pill set-pill-actions";
-    pill.innerHTML = `
-      <div class="set-pill-copy">
-        <span>Set ${index + 1}</span>
-        <strong>${entry.weight} kg x ${entry.reps}</strong>
-      </div>
-      <div class="set-pill-buttons">
-        <button class="mini-button edit-set-button" type="button">Edit</button>
-        <button class="mini-button delete-set-button" type="button">Delete</button>
-      </div>
-    `;
-    pill.querySelector(".edit-set-button").addEventListener("click", () => actions.onEdit(index));
-    pill.querySelector(".delete-set-button").addEventListener("click", () => actions.onDelete(index));
-    container.appendChild(pill);
-  });
-}
-
-function renderWeightChart(values) {
-  if (values.length < 2) {
-    weightChart.innerHTML = "<div class=\"chart-empty\">Need at least 2 weigh-ins to draw a trend.</div>";
-    return;
-  }
-  weightChart.innerHTML = renderSparkline(values, 720, 160);
-}
-
 function renderSparkline(values, width, height) {
   const padding = 12;
   const min = Math.min(...values);
@@ -519,12 +681,6 @@ function renderSparkline(values, width, height) {
 
   return `
     <svg viewBox="0 0 ${width} ${height}" class="sparkline" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="sparkFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="rgba(217,93,57,0.26)"></stop>
-          <stop offset="100%" stop-color="rgba(217,93,57,0.02)"></stop>
-        </linearGradient>
-      </defs>
       <polyline fill="none" stroke="#226b53" stroke-width="4" points="${points}"></polyline>
       <polyline fill="rgba(34,107,83,0.08)" stroke="none" points="${points} ${width - padding},${height - padding} ${padding},${height - padding}"></polyline>
     </svg>
@@ -534,11 +690,7 @@ function renderSparkline(values, width, height) {
 function buildExerciseInsight(exerciseId) {
   const entries = getExerciseHistory(exerciseId);
   if (!entries.length) {
-    return {
-      current: "-",
-      subtext: "No logged sets yet",
-      sparkValues: [],
-    };
+    return { current: "-", subtext: "No logged sets yet", sparkValues: [] };
   }
 
   const bestBySession = collapseBySessionBest(entries);
@@ -558,7 +710,6 @@ function buildExerciseInsight(exerciseId) {
 
 function collapseBySessionBest(entries) {
   const grouped = new Map();
-
   entries.forEach((entry) => {
     const key = `${entry.date}-${entry.dayId}`;
     const score = estimateOneRepMax(entry.weight, entry.reps);
@@ -567,7 +718,6 @@ function collapseBySessionBest(entries) {
       grouped.set(key, { date: entry.date, dayId: entry.dayId, score });
     }
   });
-
   return [...grouped.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -620,9 +770,7 @@ function clearEditingIfTarget(date, dayId, exerciseId, removedIndex) {
   }
   if (editing.setIndex === removedIndex) {
     state.ui.editingSet = null;
-    return;
-  }
-  if (editing.setIndex > removedIndex) {
+  } else if (editing.setIndex > removedIndex) {
     state.ui.editingSet.setIndex -= 1;
   }
 }
@@ -638,8 +786,7 @@ function calculate7DayAverage(entries) {
   if (!latestSeven.length) {
     return null;
   }
-  const total = latestSeven.reduce((sum, entry) => sum + entry.value, 0);
-  return total / latestSeven.length;
+  return latestSeven.reduce((sum, entry) => sum + entry.value, 0) / latestSeven.length;
 }
 
 function average(values) {
@@ -676,6 +823,204 @@ function buildWeightTrendText(avg, previousAvg, latestWeight) {
   return `Current 7-day average is ${avg.toFixed(1)} kg, which is ${formatSigned(avg - previousAvg)} kg versus the previous 7-day block.`;
 }
 
+function buildBackupPayload() {
+  return {
+    ...buildTrackerSnapshot(),
+    sync: {
+      projectUrl: state.sync.projectUrl,
+      anonKey: state.sync.anonKey,
+      email: state.sync.email,
+    },
+  };
+}
+
+function buildTrackerSnapshot() {
+  return {
+    weights: state.weights,
+    sessions: state.sessions,
+    activeDayId: state.activeDayId,
+    currentWeightDate: state.currentWeightDate,
+    currentSessionDate: state.currentSessionDate,
+    meta: {
+      lastModifiedAt: state.meta.lastModifiedAt,
+    },
+  };
+}
+
+function replaceTrackerState(payload) {
+  const normalized = normalizeState(payload);
+  state.weights = normalized.weights;
+  state.sessions = normalized.sessions;
+  state.activeDayId = normalized.activeDayId || state.activeDayId;
+  state.currentWeightDate = normalized.currentWeightDate || state.currentWeightDate;
+  state.currentSessionDate = normalized.currentSessionDate || state.currentSessionDate;
+  state.meta = normalized.meta || state.meta;
+  if (payload.sync) {
+    state.sync = {
+      ...state.sync,
+      projectUrl: payload.sync.projectUrl || state.sync.projectUrl,
+      anonKey: payload.sync.anonKey || state.sync.anonKey,
+      email: payload.sync.email || state.sync.email,
+    };
+  }
+  state.ui = {};
+  suspendNextSync = true;
+  saveState();
+  renderTabs();
+  renderWorkout();
+  renderWeights();
+  renderDashboard();
+  renderSyncStatus();
+}
+
+function markLocalChange() {
+  state.meta.lastModifiedAt = new Date().toISOString();
+  saveState();
+  renderSyncStatus();
+  queueSync("Change queued");
+}
+
+function queueSync(message = "Sync queued") {
+  if (!supabase || !state.sync.user || !navigator.onLine) {
+    return;
+  }
+  setSyncStatus(`${message}. Uploading shortly...`);
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    pushRemoteSnapshot({ userInitiated: false });
+  }, SYNC_DEBOUNCE_MS);
+}
+
+async function pushRemoteSnapshot({ userInitiated }) {
+  if (!supabase || !state.sync.user) {
+    setSyncStatus("Cloud sync needs Supabase config and a signed-in account.");
+    return;
+  }
+  if (suspendNextSync) {
+    suspendNextSync = false;
+    return;
+  }
+  if (syncInFlight) {
+    return syncInFlight;
+  }
+  if (!navigator.onLine) {
+    setSyncStatus("Offline. Local data saved; cloud sync will resume when you are back online.");
+    return;
+  }
+
+  setSyncStatus(userInitiated ? "Syncing to cloud..." : "Auto-syncing...");
+  const payload = buildTrackerSnapshot();
+
+  syncInFlight = supabase
+    .from(SNAPSHOT_TABLE)
+    .upsert(
+      {
+        user_id: state.sync.user.id,
+        state_json: payload,
+      },
+      { onConflict: "user_id" },
+    )
+    .select("updated_at")
+    .single();
+
+  const { data, error } = await syncInFlight;
+  syncInFlight = null;
+
+  if (error) {
+    setSyncStatus(`Cloud sync failed: ${error.message}`);
+    return;
+  }
+
+  state.sync.lastRemoteUpdatedAt = data.updated_at;
+  state.meta.lastSyncedAt = data.updated_at;
+  state.sync.lastSyncMessage = userInitiated ? "Cloud sync complete" : "Auto-sync complete";
+  saveState();
+  renderDashboard();
+  renderSyncStatus();
+}
+
+async function pullRemoteSnapshot({ preferRemote, userInitiated }) {
+  if (!supabase || !state.sync.user) {
+    if (userInitiated) {
+      setSyncStatus("Sign in first before pulling cloud data.");
+    }
+    return;
+  }
+  if (!navigator.onLine) {
+    setSyncStatus("Offline. Cannot pull cloud data right now.");
+    return;
+  }
+
+  setSyncStatus(userInitiated ? "Pulling cloud snapshot..." : "Checking cloud snapshot...");
+  const { data, error } = await supabase
+    .from(SNAPSHOT_TABLE)
+    .select("state_json, updated_at")
+    .eq("user_id", state.sync.user.id)
+    .maybeSingle();
+
+  if (error) {
+    setSyncStatus(`Cloud pull failed: ${error.message}`);
+    return;
+  }
+
+  if (!data) {
+    setSyncStatus("No cloud snapshot yet. Your next sync will create one.");
+    return;
+  }
+
+  state.sync.lastRemoteUpdatedAt = data.updated_at;
+  const remoteState = normalizeState(data.state_json);
+  const localStamp = state.meta.lastModifiedAt || "";
+  const remoteStamp = remoteState.meta?.lastModifiedAt || data.updated_at || "";
+
+  if (preferRemote || remoteStamp > localStamp) {
+    suspendNextSync = true;
+    state.weights = remoteState.weights;
+    state.sessions = remoteState.sessions;
+    state.activeDayId = remoteState.activeDayId || state.activeDayId;
+    state.currentWeightDate = remoteState.currentWeightDate || state.currentWeightDate;
+    state.currentSessionDate = remoteState.currentSessionDate || state.currentSessionDate;
+    state.meta = {
+      ...state.meta,
+      ...remoteState.meta,
+      lastSyncedAt: data.updated_at,
+    };
+    state.sync.lastSyncMessage = userInitiated
+      ? "Cloud snapshot pulled onto this device"
+      : "Loaded fresher cloud data";
+    saveState();
+    weightDate.value = state.currentWeightDate || weightDate.value;
+    sessionDate.value = state.currentSessionDate || sessionDate.value;
+    renderTabs();
+    renderWorkout();
+    renderWeights();
+    renderDashboard();
+    renderSyncStatus();
+    return;
+  }
+
+  state.sync.lastSyncMessage = "Local data is newer than the cloud snapshot";
+  saveState();
+  renderSyncStatus();
+  if (!userInitiated) {
+    queueSync("Local data is newer");
+  }
+}
+
+function setSyncStatus(message) {
+  state.sync.lastSyncMessage = message;
+  saveState();
+  renderSyncStatus();
+}
+
+function flashButton(button, label) {
+  const original = button.textContent;
+  button.textContent = label;
+  setTimeout(() => {
+    button.textContent = original;
+  }, 1400);
+}
+
 function formatSigned(value) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}`;
 }
@@ -688,10 +1033,16 @@ function inferDayFromDate(dateString) {
 
 function shortDate(dateString) {
   const date = new Date(`${dateString}T00:00:00`);
+  return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(date);
+}
+
+function formatDateTime(dateString) {
   return new Intl.DateTimeFormat("en-IN", {
     day: "numeric",
     month: "short",
-  }).format(date);
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(dateString));
 }
 
 function getDateString(date) {
@@ -706,24 +1057,45 @@ function normalizeState(raw) {
     weights: raw.weights || {},
     sessions: raw.sessions || {},
     activeDayId: raw.activeDayId || "mon",
-    currentWeightDate: raw.currentWeightDate,
-    currentSessionDate: raw.currentSessionDate,
+    currentWeightDate: raw.currentWeightDate || getDateString(new Date()),
+    currentSessionDate: raw.currentSessionDate || getDateString(new Date()),
+    meta: {
+      lastModifiedAt: raw.meta?.lastModifiedAt || null,
+      lastSyncedAt: raw.meta?.lastSyncedAt || null,
+    },
     ui: raw.ui || {},
+    sync: raw.sync || {
+      projectUrl: "",
+      anonKey: "",
+      email: "",
+      user: null,
+      lastRemoteUpdatedAt: null,
+      lastSyncMessage: "Local-only mode",
+    },
   };
+}
+
+async function loadSupabaseModule() {
+  if (!supabaseModule) {
+    supabaseModule = import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+  }
+  return supabaseModule;
 }
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      return normalizeState(JSON.parse(raw));
+    const current = localStorage.getItem(STORAGE_KEY);
+    if (current) {
+      return normalizeState(JSON.parse(current));
     }
 
-    const legacyRaw = localStorage.getItem("iron-ledger-v1");
-    if (legacyRaw) {
-      const migrated = normalizeState(JSON.parse(legacyRaw));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-      return migrated;
+    for (const key of LEGACY_KEYS) {
+      const legacy = localStorage.getItem(key);
+      if (legacy) {
+        const migrated = normalizeState(JSON.parse(legacy));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
     }
   } catch {
     return normalizeState({});

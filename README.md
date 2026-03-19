@@ -37,6 +37,7 @@ After the first load, the app is cached offline, so it should still open in the 
 - Pre-fills weight and reps from the last matching session
 - Shows a dashboard for bodyweight trend and key lift progress
 - Stores everything in browser local storage
+- Can sync your data across devices with Supabase magic-link login
 - Exports and imports JSON backups
 
 ## Pixel workflow
@@ -45,3 +46,22 @@ After the first load, the app is cached offline, so it should still open in the 
 2. Tap the three-dot menu.
 3. Choose `Add to Home screen`.
 4. Open it from the home screen like an app.
+
+## Supabase sync setup
+
+The app now supports optional account-based sync.
+
+1. Create a Supabase project.
+2. In the SQL editor, run [`supabase-setup.sql`](./supabase-setup.sql).
+3. In Supabase Auth, enable email sign-in.
+4. In the app, paste your project URL and anon key into the Sync section.
+5. Enter your email and tap `Send Magic Link`.
+6. Open the link on the same phone, then return to the app.
+7. Your local data will stay local-first and auto-sync to the cloud when signed in.
+
+## Sync model
+
+- Local saves are immediate.
+- Cloud sync is automatic a moment later when signed in and online.
+- If cloud data is newer on sign-in, the app pulls it down automatically.
+- You can always force `Pull Cloud Snapshot` or `Sync Now`.

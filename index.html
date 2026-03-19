@@ -60,6 +60,40 @@
         <section class="panel compact-panel">
           <div class="panel-heading">
             <div>
+              <p class="eyebrow">Sync</p>
+              <h2>Phone-to-Phone Backup</h2>
+            </div>
+          </div>
+          <form id="syncForm" class="weight-form">
+            <label>
+              <span>Supabase Project URL</span>
+              <input id="supabaseUrl" type="url" placeholder="https://xyzcompany.supabase.co" />
+            </label>
+            <label>
+              <span>Supabase Anon Key</span>
+              <textarea id="supabaseAnonKey" rows="4" placeholder="paste public anon key"></textarea>
+            </label>
+            <label>
+              <span>Email For Magic Link</span>
+              <input id="syncEmail" type="email" placeholder="you@example.com" />
+            </label>
+            <button id="saveSyncConfigButton" class="primary-button" type="submit">Save Sync Config</button>
+          </form>
+          <div class="utility-actions">
+            <button id="sendMagicLinkButton" class="secondary-button" type="button">Send Magic Link</button>
+            <button id="pullCloudButton" class="secondary-button" type="button">Pull Cloud Snapshot</button>
+            <button id="syncNowButton" class="secondary-button" type="button">Sync Now</button>
+            <button id="signOutButton" class="ghost-button" type="button">Sign Out</button>
+          </div>
+          <div class="storage-note">
+            <p class="eyebrow">Status</p>
+            <p id="syncStatus"></p>
+          </div>
+        </section>
+
+        <section class="panel compact-panel">
+          <div class="panel-heading">
+            <div>
               <p class="eyebrow">Bodyweight</p>
               <h2>Morning Check-In</h2>
             </div>
@@ -162,6 +196,6 @@
       </article>
     </template>
 
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
