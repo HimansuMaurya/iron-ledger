@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#101816" />
+    <meta
+      name="description"
+      content="Mobile-first workout and bodyweight tracker for an aesthetic V-taper training plan."
+    />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Iron Ledger</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Aesthetic Phase 1</p>
+          <h1>Iron Ledger</h1>
+          <p class="hero-text">
+            Track today’s lifts in seconds. Built for your Pixel, your 5:30 AM sessions,
+            and your cut.
+          </p>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-card">
+            <span class="stat-label">Today</span>
+            <strong id="todayLabel">-</strong>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">7D Avg</span>
+            <strong id="avgWeight">-</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel compact-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Bodyweight</p>
+              <h2>Morning Check-In</h2>
+            </div>
+          </div>
+          <form id="weightForm" class="weight-form">
+            <label>
+              <span>Date</span>
+              <input id="weightDate" name="weightDate" type="date" required />
+            </label>
+            <label>
+              <span>Weight (kg)</span>
+              <input
+                id="weightValue"
+                name="weightValue"
+                type="number"
+                inputmode="decimal"
+                min="30"
+                max="250"
+                step="0.1"
+                placeholder="75.0"
+                required
+              />
+            </label>
+            <button class="primary-button" type="submit">Save Weight</button>
+          </form>
+          <div id="weightHistory" class="history-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Workout</p>
+              <h2>Daily Split</h2>
+            </div>
+            <label class="date-chip">
+              <span>Session Date</span>
+              <input id="sessionDate" type="date" />
+            </label>
+          </div>
+
+          <div id="dayTabs" class="day-tabs" aria-label="Workout split tabs"></div>
+          <div id="dayMeta" class="day-meta"></div>
+          <div id="exerciseList" class="exercise-list"></div>
+        </section>
+
+        <section class="panel compact-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Backup</p>
+              <h2>Export / Import</h2>
+            </div>
+          </div>
+          <div class="utility-actions">
+            <button id="exportButton" class="secondary-button" type="button">Copy Backup JSON</button>
+            <button id="downloadButton" class="secondary-button" type="button">Download Backup</button>
+            <label class="import-label">
+              <span>Paste backup JSON</span>
+              <textarea
+                id="importInput"
+                rows="5"
+                placeholder='{"weights":{},"sessions":{}}'
+              ></textarea>
+            </label>
+            <button id="importButton" class="primary-button" type="button">Import Backup</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="exerciseTemplate">
+      <article class="exercise-card">
+        <div class="exercise-top">
+          <div>
+            <h3 class="exercise-name"></h3>
+            <p class="exercise-target"></p>
+          </div>
+          <span class="badge set-count"></span>
+        </div>
+
+        <div class="quick-entry">
+          <label>
+            <span>Weight</span>
+            <input class="exercise-weight" type="number" inputmode="decimal" step="0.5" />
+          </label>
+          <label>
+            <span>Reps</span>
+            <input class="exercise-reps" type="number" inputmode="numeric" step="1" />
+          </label>
+          <button class="primary-button log-button" type="button">Log Set</button>
+        </div>
+
+        <div class="quick-actions">
+          <button class="ghost-button repeat-button" type="button">Repeat Last</button>
+          <button class="ghost-button undo-button" type="button">Undo Last</button>
+        </div>
+
+        <div class="logged-sets"></div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
