@@ -91,6 +91,32 @@ textarea {
   gap: 12px;
 }
 
+.route-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.route-link,
+.ghost-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.4);
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.route-link.active {
+  background: var(--ink);
+  color: #f5efdf;
+}
+
 .stat-card,
 .panel,
 .exercise-card {
@@ -161,6 +187,8 @@ textarea {
 
 .date-chip input,
 .weight-form input,
+.split-editor input,
+.split-exercise-row input,
 .quick-entry input,
 textarea {
   width: 100%;
@@ -177,6 +205,8 @@ textarea {
 }
 
 .weight-form label,
+.split-editor label,
+.split-exercise-row label,
 .quick-entry label,
 .import-label {
   display: grid;
@@ -219,6 +249,10 @@ textarea {
 .exercise-list {
   display: grid;
   gap: 14px;
+}
+
+[hidden-route="true"] {
+  display: none !important;
 }
 
 .dashboard-grid {
@@ -344,6 +378,42 @@ textarea {
 
 .chart-card {
   margin-bottom: 14px;
+}
+
+.split-actions,
+.split-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.split-actions {
+  margin-bottom: 14px;
+}
+
+.split-editor {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.split-exercise-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.split-exercise-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
 }
 
 .chart-text,
@@ -557,6 +627,15 @@ button:disabled {
   }
 
   .sync-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .split-actions,
+  .split-editor-actions {
+    flex-direction: column;
+  }
+
+  .split-exercise-row {
     grid-template-columns: 1fr;
   }
 

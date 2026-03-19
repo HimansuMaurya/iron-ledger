@@ -33,10 +33,16 @@
             <strong id="avgWeight">-</strong>
           </div>
         </div>
+        <nav class="route-nav" aria-label="Sections">
+          <a class="route-link" href="#all">All</a>
+          <a class="route-link" href="#dashboard">Dashboard</a>
+          <a class="route-link" href="#workout">Workout</a>
+          <a class="route-link" href="#sync">Sync</a>
+        </nav>
       </header>
 
       <main class="layout">
-        <section class="panel dashboard-panel">
+        <section id="dashboardSection" data-route-section="dashboard" class="panel dashboard-panel">
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Dashboard</p>
@@ -58,7 +64,7 @@
           </div>
         </section>
 
-        <section class="panel compact-panel">
+        <section id="syncSection" data-route-section="sync" class="panel compact-panel">
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Sync</p>
@@ -92,7 +98,7 @@
           </div>
         </section>
 
-        <section class="panel compact-panel">
+        <section id="weightSection" data-route-section="workout" class="panel compact-panel">
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Bodyweight</p>
@@ -123,7 +129,7 @@
           <div id="weightHistory" class="history-list"></div>
         </section>
 
-        <section class="panel">
+        <section id="workoutSection" data-route-section="workout" class="panel">
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Workout</p>
@@ -137,10 +143,34 @@
 
           <div id="dayTabs" class="day-tabs" aria-label="Workout split tabs"></div>
           <div id="dayMeta" class="day-meta"></div>
+          <div class="split-actions">
+            <button id="editSplitButton" class="secondary-button" type="button">Edit Current Day</button>
+            <a id="dashboardLink" class="ghost-link-button" href="#dashboard">Open Dashboard URL</a>
+          </div>
+          <form id="splitEditor" class="split-editor" hidden>
+            <label>
+              <span>Day Name</span>
+              <input id="splitDayName" type="text" placeholder="Pull A" />
+            </label>
+            <label>
+              <span>Focus</span>
+              <input id="splitDayFocus" type="text" placeholder="Lat width + biceps" />
+            </label>
+            <label>
+              <span>Notes</span>
+              <textarea id="splitDayNotes" rows="3" placeholder="Day notes"></textarea>
+            </label>
+            <div id="splitExerciseEditor" class="split-exercise-editor"></div>
+            <div class="split-editor-actions">
+              <button id="addExerciseButton" class="ghost-button" type="button">Add Exercise</button>
+              <button id="saveSplitButton" class="primary-button" type="submit">Save Day</button>
+              <button id="cancelSplitButton" class="ghost-button" type="button">Cancel</button>
+            </div>
+          </form>
           <div id="exerciseList" class="exercise-list"></div>
         </section>
 
-        <section class="panel compact-panel">
+        <section id="backupSection" data-route-section="sync" class="panel compact-panel">
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Backup</p>
@@ -195,6 +225,20 @@
         <p class="helper-text"></p>
         <div class="logged-sets"></div>
       </article>
+    </template>
+
+    <template id="splitExerciseTemplate">
+      <div class="split-exercise-row">
+        <label>
+          <span>Exercise</span>
+          <input class="split-exercise-name" type="text" placeholder="Lat Pulldown" />
+        </label>
+        <label>
+          <span>Target</span>
+          <input class="split-exercise-target" type="text" placeholder="4 x 8-12" />
+        </label>
+        <button class="mini-button split-remove-exercise" type="button">Remove</button>
+      </div>
     </template>
 
     <script type="module" src="app.js"></script>

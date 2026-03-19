@@ -1,4 +1,4 @@
-const CACHE_NAME = "iron-ledger-cache-v4";
+const CACHE_NAME = "iron-ledger-cache-v5";
 const ASSETS = [
   "./",
   "./index.html",

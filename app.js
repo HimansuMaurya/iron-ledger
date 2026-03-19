@@ -3,7 +3,7 @@ const LEGACY_KEYS = ["iron-ledger-v2", "iron-ledger-v1"];
 const SYNC_DEBOUNCE_MS = 1200;
 const SNAPSHOT_TABLE = "user_snapshots";
 
-const splitDays = [
+const DEFAULT_SPLIT_DAYS = [
   {
     id: "mon",
     label: "Mon",
@@ -97,12 +97,7 @@ const splitDays = [
   },
 ];
 
-const dashboardExercises = [
-  { id: "lat-pulldown", label: "Lat Pulldown" },
-  { id: "incline-db-press-heavy", label: "Incline DB Press" },
-  { id: "back-squat", label: "Back Squat" },
-  { id: "romanian-deadlift", label: "Romanian Deadlift" },
-];
+const dashboardExercises = ["lat-pulldown", "incline-db-press-heavy", "back-squat", "romanian-deadlift"];
 
 const state = loadState();
 let supabase = null;
@@ -141,6 +136,17 @@ const pullCloudButton = document.getElementById("pullCloudButton");
 const syncNowButton = document.getElementById("syncNowButton");
 const signOutButton = document.getElementById("signOutButton");
 const syncStatus = document.getElementById("syncStatus");
+const editSplitButton = document.getElementById("editSplitButton");
+const splitEditor = document.getElementById("splitEditor");
+const splitDayName = document.getElementById("splitDayName");
+const splitDayFocus = document.getElementById("splitDayFocus");
+const splitDayNotes = document.getElementById("splitDayNotes");
+const splitExerciseEditor = document.getElementById("splitExerciseEditor");
+const addExerciseButton = document.getElementById("addExerciseButton");
+const cancelSplitButton = document.getElementById("cancelSplitButton");
+const splitExerciseTemplate = document.getElementById("splitExerciseTemplate");
+const routeLinks = [...document.querySelectorAll(".route-link")];
+const routeSections = [...document.querySelectorAll("[data-route-section]")];
 
 await initialize();
 
@@ -150,7 +156,9 @@ async function initialize() {
   sessionDate.value = state.currentSessionDate || today;
   state.activeDayId = state.activeDayId || inferDayFromDate(sessionDate.value);
   state.ui = state.ui || {};
+  state.ui.route = getRouteFromHash();
   state.meta = state.meta || { lastModifiedAt: null, lastSyncedAt: null };
+  state.plan = state.plan || { days: cloneDefaultSplitDays() };
   state.sync = state.sync || {
     projectUrl: "",
     anonKey: "",
@@ -161,10 +169,12 @@ async function initialize() {
   };
 
   populateSyncInputs();
+  applyRoute();
   renderTabs();
   renderWorkout();
   renderWeights();
   renderDashboard();
+  renderSplitEditor();
   renderSyncStatus();
   bindEvents();
   await initializeSupabase();
@@ -196,6 +206,7 @@ function bindEvents() {
     state.activeDayId = inferDayFromDate(sessionDate.value);
     saveState();
     renderTabs();
+    renderSplitEditor();
     renderWorkout();
   });
 
@@ -299,6 +310,37 @@ function bindEvents() {
     setSyncStatus("Back online");
     queueSync("Came back online");
   });
+
+  window.addEventListener("hashchange", () => {
+    state.ui.route = getRouteFromHash();
+    saveState();
+    applyRoute();
+  });
+
+  editSplitButton.addEventListener("click", () => {
+    state.ui.editingSplit = !state.ui.editingSplit;
+    saveState();
+    renderSplitEditor();
+  });
+
+  addExerciseButton.addEventListener("click", () => {
+    appendSplitExerciseRow({
+      id: `custom-${Date.now()}`,
+      name: "",
+      target: "",
+    });
+  });
+
+  cancelSplitButton.addEventListener("click", () => {
+    state.ui.editingSplit = false;
+    saveState();
+    renderSplitEditor();
+  });
+
+  splitEditor.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveCurrentDaySplit();
+  });
 }
 
 async function initializeSupabase() {
@@ -353,7 +395,7 @@ async function initializeSupabase() {
 
 function renderTabs() {
   dayTabs.innerHTML = "";
-  splitDays.forEach((day) => {
+  getSplitDays().forEach((day) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `tab-button${day.id === state.activeDayId ? " active" : ""}`;
@@ -363,6 +405,7 @@ function renderTabs() {
       state.ui.editingSet = null;
       saveState();
       renderTabs();
+      renderSplitEditor();
       renderWorkout();
     });
     dayTabs.appendChild(button);
@@ -370,7 +413,8 @@ function renderTabs() {
 }
 
 function renderWorkout() {
-  const day = splitDays.find((item) => item.id === state.activeDayId) || splitDays[0];
+  const days = getSplitDays();
+  const day = days.find((item) => item.id === state.activeDayId) || days[0];
   const date = sessionDate.value || getDateString(new Date());
   const session = getSession(date, day.id);
 
@@ -491,6 +535,21 @@ function renderWorkout() {
   });
 }
 
+function renderSplitEditor() {
+  const day = getCurrentDay();
+  const isVisible = Boolean(state.ui.editingSplit);
+  splitEditor.hidden = !isVisible;
+  if (!day || !isVisible) {
+    return;
+  }
+
+  splitDayName.value = day.name || "";
+  splitDayFocus.value = day.focus || "";
+  splitDayNotes.value = day.notes || "";
+  splitExerciseEditor.innerHTML = "";
+  day.exercises.forEach((exercise) => appendSplitExerciseRow(exercise));
+}
+
 function renderWeights() {
   const entries = getWeightEntries();
   const avg = calculate7DayAverage(entries);
@@ -557,11 +616,12 @@ function renderDashboard() {
   ];
   statCards.forEach((card) => dashboardGrid.appendChild(createInsightCard(card)));
 
-  dashboardExercises.forEach((exercise) => {
-    const insight = buildExerciseInsight(exercise.id);
+  dashboardExercises.forEach((exerciseId) => {
+    const insight = buildExerciseInsight(exerciseId);
+    const liveExercise = findExerciseById(exerciseId);
     dashboardGrid.appendChild(
       createInsightCard({
-        title: exercise.label,
+        title: liveExercise?.name || prettifyExerciseId(exerciseId),
         value: insight.current,
         subtext: insight.subtext,
         sparkValues: insight.sparkValues,
@@ -738,6 +798,50 @@ function buildExerciseInsight(exerciseId) {
   };
 }
 
+function appendSplitExerciseRow(exercise) {
+  const node = splitExerciseTemplate.content.cloneNode(true);
+  const row = node.querySelector(".split-exercise-row");
+  row.dataset.exerciseId = exercise.id;
+  node.querySelector(".split-exercise-name").value = exercise.name || "";
+  node.querySelector(".split-exercise-target").value = exercise.target || "";
+  node.querySelector(".split-remove-exercise").addEventListener("click", () => {
+    row.remove();
+  });
+  splitExerciseEditor.appendChild(row);
+}
+
+function saveCurrentDaySplit() {
+  const day = getCurrentDay();
+  if (!day) {
+    return;
+  }
+
+  day.name = splitDayName.value.trim() || day.name;
+  day.focus = splitDayFocus.value.trim();
+  day.notes = splitDayNotes.value.trim();
+  day.exercises = [...splitExerciseEditor.querySelectorAll(".split-exercise-row")]
+    .map((row, index) => {
+      const name = row.querySelector(".split-exercise-name").value.trim();
+      const target = row.querySelector(".split-exercise-target").value.trim();
+      if (!name) {
+        return null;
+      }
+      return {
+        id: row.dataset.exerciseId || `custom-${Date.now()}-${index}`,
+        name,
+        target: target || "3 x 8-12",
+      };
+    })
+    .filter(Boolean);
+
+  state.ui.editingSplit = false;
+  markLocalChange();
+  renderTabs();
+  renderSplitEditor();
+  renderWorkout();
+  renderDashboard();
+}
+
 function collapseBySessionBest(entries) {
   const grouped = new Map();
   entries.forEach((entry) => {
@@ -766,6 +870,23 @@ function getSession(date, dayId) {
   state.sessions[date] = state.sessions[date] || {};
   state.sessions[date][dayId] = state.sessions[date][dayId] || { exercises: {} };
   return state.sessions[date][dayId];
+}
+
+function getSplitDays() {
+  return state.plan.days;
+}
+
+function getCurrentDay() {
+  const days = getSplitDays();
+  return days.find((item) => item.id === state.activeDayId) || days[0];
+}
+
+function findExerciseById(exerciseId) {
+  return (
+    getSplitDays()
+      .flatMap((day) => day.exercises)
+      .find((exercise) => exercise.id === exerciseId) || null
+  );
 }
 
 function getLastSetAcrossSessions(exerciseId) {
@@ -959,6 +1080,7 @@ function buildTrackerSnapshot() {
   return {
     weights: state.weights,
     sessions: state.sessions,
+    plan: state.plan,
     activeDayId: state.activeDayId,
     currentWeightDate: state.currentWeightDate,
     currentSessionDate: state.currentSessionDate,
@@ -972,6 +1094,7 @@ function replaceTrackerState(payload) {
   const normalized = normalizeState(payload);
   state.weights = normalized.weights;
   state.sessions = normalized.sessions;
+  state.plan = normalized.plan;
   state.activeDayId = normalized.activeDayId || state.activeDayId;
   state.currentWeightDate = normalized.currentWeightDate || state.currentWeightDate;
   state.currentSessionDate = normalized.currentSessionDate || state.currentSessionDate;
@@ -988,6 +1111,7 @@ function replaceTrackerState(payload) {
   suspendNextSync = true;
   saveState();
   renderTabs();
+  renderSplitEditor();
   renderWorkout();
   renderWeights();
   renderDashboard();
@@ -1098,6 +1222,7 @@ async function pullRemoteSnapshot({ preferRemote, userInitiated }) {
     suspendNextSync = true;
     state.weights = remoteState.weights;
     state.sessions = remoteState.sessions;
+    state.plan = remoteState.plan;
     state.activeDayId = remoteState.activeDayId || state.activeDayId;
     state.currentWeightDate = remoteState.currentWeightDate || state.currentWeightDate;
     state.currentSessionDate = remoteState.currentSessionDate || state.currentSessionDate;
@@ -1113,6 +1238,7 @@ async function pullRemoteSnapshot({ preferRemote, userInitiated }) {
     weightDate.value = state.currentWeightDate || weightDate.value;
     sessionDate.value = state.currentSessionDate || sessionDate.value;
     renderTabs();
+    renderSplitEditor();
     renderWorkout();
     renderWeights();
     renderDashboard();
@@ -1135,6 +1261,26 @@ function setSyncStatus(message) {
   renderSyncStatus();
 }
 
+function applyRoute() {
+  const route = state.ui.route || "all";
+  routeLinks.forEach((link) => {
+    link.classList.toggle("active", normalizeRoute(link.getAttribute("href").slice(1)) === route);
+  });
+  routeSections.forEach((section) => {
+    const sectionRoute = section.dataset.routeSection;
+    const isVisible = route === "all" || route === sectionRoute;
+    section.setAttribute("hidden-route", isVisible ? "false" : "true");
+  });
+}
+
+function getRouteFromHash() {
+  return normalizeRoute(window.location.hash.replace("#", ""));
+}
+
+function normalizeRoute(route) {
+  return ["all", "dashboard", "workout", "sync"].includes(route) ? route : "all";
+}
+
 function flashButton(button, label) {
   const original = button.textContent;
   button.textContent = label;
@@ -1145,6 +1291,13 @@ function flashButton(button, label) {
 
 function formatSigned(value) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}`;
+}
+
+function prettifyExerciseId(exerciseId) {
+  return exerciseId
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function inferDayFromDate(dateString) {
@@ -1185,6 +1338,7 @@ function normalizeState(raw) {
   return {
     weights: raw.weights || {},
     sessions: raw.sessions || {},
+    plan: normalizePlan(raw.plan),
     activeDayId: raw.activeDayId || "mon",
     currentWeightDate: raw.currentWeightDate || getDateString(new Date()),
     currentSessionDate: raw.currentSessionDate || getDateString(new Date()),
@@ -1202,6 +1356,43 @@ function normalizeState(raw) {
       lastSyncMessage: "Local-only mode",
     },
   };
+}
+
+function normalizePlan(plan) {
+  const defaultDays = cloneDefaultSplitDays();
+  if (!plan?.days?.length) {
+    return { days: defaultDays };
+  }
+
+  return {
+    days: defaultDays.map((defaultDay) => {
+      const existingDay = plan.days.find((item) => item.id === defaultDay.id);
+      if (!existingDay) {
+        return defaultDay;
+      }
+      return {
+        ...defaultDay,
+        ...existingDay,
+        exercises: normalizeExercises(defaultDay.exercises, existingDay.exercises),
+      };
+    }),
+  };
+}
+
+function normalizeExercises(defaultExercises, exercises) {
+  if (!Array.isArray(exercises) || !exercises.length) {
+    return defaultExercises;
+  }
+
+  return exercises.map((exercise, index) => ({
+    id: exercise.id || defaultExercises[index]?.id || `custom-${index}`,
+    name: exercise.name || defaultExercises[index]?.name || "Exercise",
+    target: exercise.target || defaultExercises[index]?.target || "3 x 8-12",
+  }));
+}
+
+function cloneDefaultSplitDays() {
+  return JSON.parse(JSON.stringify(DEFAULT_SPLIT_DAYS));
 }
 
 async function loadSupabaseModule() {
