@@ -132,7 +132,7 @@
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Workout</p>
-              <h2>Society Gym Split</h2>
+              <h2>Choose Split Pattern</h2>
             </div>
             <label class="date-chip">
               <span>Session Date</span>
@@ -140,20 +140,20 @@
             </label>
           </div>
 
-          <div id="dayTabs" class="day-tabs" aria-label="Workout split tabs"></div>
+          <div id="dayTabs" class="day-tabs" aria-label="Workout pattern tabs"></div>
           <div id="dayMeta" class="day-meta"></div>
           <div class="split-actions">
-            <button id="editSplitButton" class="secondary-button" type="button">Edit Current Day</button>
+            <button id="editSplitButton" class="secondary-button" type="button">Edit Pattern</button>
             <a id="dashboardLink" class="ghost-link-button" href="#dashboard">Open Dashboard URL</a>
           </div>
           <form id="splitEditor" class="split-editor" hidden>
             <label>
-              <span>Day Name</span>
+              <span>Pattern Name</span>
               <input id="splitDayName" type="text" placeholder="Pull A" />
             </label>
             <label>
               <span>Focus</span>
-              <input id="splitDayFocus" type="text" placeholder="Lat width + biceps" />
+              <input id="splitDayFocus" type="text" placeholder="Lat width + rear delts" />
             </label>
             <label>
               <span>Notes</span>
@@ -162,7 +162,7 @@
             <div id="splitExerciseEditor" class="split-exercise-editor"></div>
             <div class="split-editor-actions">
               <button id="addExerciseButton" class="ghost-button" type="button">Add Exercise</button>
-              <button id="saveSplitButton" class="primary-button" type="submit">Save Day</button>
+              <button id="saveSplitButton" class="primary-button" type="submit">Save Pattern</button>
               <button id="cancelSplitButton" class="ghost-button" type="button">Cancel</button>
             </div>
           </form>
@@ -199,6 +199,7 @@
           <div>
             <h3 class="exercise-name"></h3>
             <p class="exercise-target"></p>
+            <div class="learn-links"></div>
           </div>
           <span class="badge set-count"></span>
         </div>
@@ -235,6 +236,10 @@
         <label>
           <span>Target</span>
           <input class="split-exercise-target" type="text" placeholder="4 x 8-12" />
+        </label>
+        <label>
+          <span>Tutorial URL</span>
+          <input class="split-exercise-learn-url" type="url" placeholder="https://youtube.com/..." />
         </label>
         <button class="mini-button split-remove-exercise" type="button">Remove</button>
       </div>

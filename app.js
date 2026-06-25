@@ -2,7 +2,7 @@ const STORAGE_KEY = "iron-ledger-v3";
 const LEGACY_KEYS = ["iron-ledger-v2", "iron-ledger-v1"];
 const SYNC_DEBOUNCE_MS = 1200;
 const SNAPSHOT_TABLE = "user_snapshots";
-const PLAN_VERSION = 3;
+const PLAN_VERSION = 4;
 
 const DEFAULT_SPLIT_DAYS = [
   {
@@ -12,12 +12,12 @@ const DEFAULT_SPLIT_DAYS = [
     focus: "Lat width + rear delts",
     notes: "Freshest energy goes to lats. Keep pulldowns and lat rows clean, controlled, and fully stretched.",
     exercises: [
-      { id: "lat-pulldown", name: "Lat Pulldown, Medium/Wide Grip", target: "4 x 6-10" },
-      { id: "single-arm-cable-lat-row", name: "Single-Arm Cable Lat Row", target: "3 x 8-12/side" },
-      { id: "chest-supported-db-row-a", name: "Chest-Supported Dumbbell Row", target: "3 x 8-12" },
-      { id: "straight-arm-pulldown", name: "Straight-Arm Cable Pulldown", target: "3 x 12-15" },
-      { id: "cable-rear-delt-fly-a", name: "Cable Rear-Delt Fly", target: "4 x 15-20" },
-      { id: "incline-db-curl", name: "Incline Dumbbell Curl", target: "2 x 8-12" },
+      { id: "lat-pulldown", name: "Lat Pulldown, Medium/Wide Grip", target: "4 x 6-10", learnUrl: "https://www.youtube.com/watch?v=bNmvKpJSWKM" },
+      { id: "single-arm-cable-lat-row", name: "Single-Arm Cable Lat Row", target: "3 x 8-12/side", learnUrl: "https://www.youtube.com/watch?v=XKctRJRN5LQ" },
+      { id: "chest-supported-db-row-a", name: "Chest-Supported Dumbbell Row", target: "3 x 8-12", learnUrl: "https://www.youtube.com/watch?v=oNsqMW1gPiU" },
+      { id: "straight-arm-pulldown", name: "Straight-Arm Cable Pulldown", target: "3 x 12-15", learnUrl: "https://www.youtube.com/watch?v=hAMcfubonDc" },
+      { id: "cable-rear-delt-fly-a", name: "Cable Rear-Delt Fly", target: "4 x 15-20", learnUrl: "https://www.youtube.com/watch?v=JENKmsEZQO8" },
+      { id: "incline-db-curl", name: "Incline Dumbbell Curl", target: "2 x 8-12", learnUrl: "https://www.youtube.com/watch?v=Vs7-Vdyi_oc" },
     ],
   },
   {
@@ -27,12 +27,12 @@ const DEFAULT_SPLIT_DAYS = [
     focus: "Smith squat + hamstrings",
     notes: "Train legs hard enough for balance, but keep volume capped so upper-body priority recovers.",
     exercises: [
-      { id: "smith-squat", name: "Smith Machine Squat", target: "3 x 6-10" },
-      { id: "db-romanian-deadlift-a", name: "Dumbbell Romanian Deadlift", target: "3 x 8-12" },
-      { id: "bulgarian-split-squat", name: "Bulgarian Split Squat", target: "2 x 8-12/leg" },
-      { id: "leg-extension-a", name: "Leg Extension", target: "2 x 12-15" },
-      { id: "standing-calf-raise-a", name: "Standing Calf Raise", target: "3 x 10-20" },
-      { id: "cable-crunch", name: "Cable Crunch", target: "3 x 10-15" },
+      { id: "smith-squat", name: "Smith Machine Squat", target: "3 x 6-10", learnUrl: "https://www.youtube.com/watch?v=iKCJCydYYrE" },
+      { id: "db-romanian-deadlift-a", name: "Dumbbell Romanian Deadlift", target: "3 x 8-12", learnUrl: "https://www.youtube.com/watch?v=hu3jRvTc_po" },
+      { id: "bulgarian-split-squat", name: "Bulgarian Split Squat", target: "2 x 8-12/leg", learnUrl: "https://www.youtube.com/watch?v=or1frhkjBDc" },
+      { id: "leg-extension-a", name: "Leg Extension", target: "2 x 12-15", learnUrl: "https://www.youtube.com/watch?v=06TrGrYBC5w" },
+      { id: "standing-calf-raise-a", name: "Standing Calf Raise", target: "3 x 10-20", learnUrl: "https://www.youtube.com/watch?v=wlqTemUXPXY" },
+      { id: "cable-crunch", name: "Cable Crunch", target: "3 x 10-15", learnUrl: "https://www.youtube.com/watch?v=2fbujeH3F0E" },
     ],
   },
   {
@@ -42,13 +42,13 @@ const DEFAULT_SPLIT_DAYS = [
     focus: "Upper chest + side delts",
     notes: "Upper chest and lateral raises are the visual priorities. Keep overhead pressing controlled.",
     exercises: [
-      { id: "incline-db-press-heavy", name: "Incline Dumbbell Press", target: "4 x 6-10" },
-      { id: "chest-press-machine", name: "Chest Press Machine", target: "2 x 8-12" },
-      { id: "seated-db-shoulder-press", name: "Seated Dumbbell Shoulder Press", target: "2 x 6-10" },
-      { id: "cable-lateral-raise-a", name: "Cable Lateral Raise", target: "4 x 12-20/side" },
-      { id: "db-lateral-raise-a", name: "Dumbbell Lateral Raise", target: "3 x 15-25" },
-      { id: "triceps-pressdown-a", name: "Rope or Bar Triceps Pressdown", target: "3 x 10-15" },
-      { id: "overhead-cable-triceps-extension-a", name: "Overhead Cable Triceps Extension", target: "2 x 12-15" },
+      { id: "incline-db-press-heavy", name: "Incline Dumbbell Press", target: "4 x 6-10", learnUrl: "https://www.youtube.com/watch?v=8fXfwG4ftaQ" },
+      { id: "chest-press-machine", name: "Chest Press Machine", target: "2 x 8-12", learnUrl: "https://www.youtube.com/watch?v=Qu7-ceCvq7w" },
+      { id: "seated-db-shoulder-press", name: "Seated Dumbbell Shoulder Press", target: "2 x 6-10", learnUrl: "https://www.youtube.com/watch?v=HzIiNhHhhtA" },
+      { id: "cable-lateral-raise-a", name: "Cable Lateral Raise", target: "4 x 12-20/side", learnUrl: "https://www.youtube.com/watch?v=Sp8be0IFNvk" },
+      { id: "db-lateral-raise-a", name: "Dumbbell Lateral Raise", target: "3 x 15-25", learnUrl: "https://www.youtube.com/watch?v=Kl3LEzQ5Zqs" },
+      { id: "triceps-pressdown-a", name: "Rope or Bar Triceps Pressdown", target: "3 x 10-15", learnUrl: "https://www.youtube.com/watch?v=1FjkhpZsaxc" },
+      { id: "overhead-cable-triceps-extension-a", name: "Overhead Cable Triceps Extension", target: "2 x 12-15", learnUrl: "https://www.youtube.com/watch?v=GzmlxvSFE7A" },
     ],
   },
   {
@@ -59,10 +59,10 @@ const DEFAULT_SPLIT_DAYS = [
     notes: "Keep sport moderate if Friday pull performance matters. Use this as recovery, not another max day.",
     exercises: [
       { id: "tennis-or-badminton", name: "Tennis or Badminton", target: "Moderate intensity" },
-      { id: "hip-flexor-stretch", name: "Hip Flexor Stretch", target: "30 sec/side" },
-      { id: "calf-stretch", name: "Calf Stretch", target: "30 sec/side" },
-      { id: "thoracic-rotation", name: "Thoracic Rotation", target: "8 reps/side" },
-      { id: "external-rotation", name: "Cable External Rotation", target: "2 x 15/side" },
+      { id: "hip-flexor-stretch", name: "Hip Flexor Stretch", target: "30 sec/side", learnUrl: "https://www.youtube.com/watch?v=ktgtEWGhFd8" },
+      { id: "calf-stretch", name: "Calf Stretch", target: "30 sec/side", learnUrl: "https://www.youtube.com/watch?v=7SO6QzfBRaE" },
+      { id: "thoracic-rotation", name: "Thoracic Rotation", target: "8 reps/side", learnUrl: "https://www.youtube.com/watch?v=l3Ze_9iXL-M" },
+      { id: "external-rotation", name: "Cable External Rotation", target: "2 x 15/side", learnUrl: "https://www.youtube.com/watch?v=fuWq7fg74dc" },
     ],
   },
   {
@@ -72,14 +72,14 @@ const DEFAULT_SPLIT_DAYS = [
     focus: "Upper-back thickness + delts",
     notes: "Use supported rows so your lower back is fresh enough for Saturday.",
     exercises: [
-      { id: "close-grip-pulldown", name: "Neutral or Close-Grip Lat Pulldown", target: "3 x 8-12" },
-      { id: "seated-cable-row", name: "Seated Cable Row or Low Cable Row", target: "3 x 8-12" },
-      { id: "chest-supported-db-row-b", name: "Chest-Supported Dumbbell Row", target: "3 x 8-12" },
-      { id: "cable-rear-delt-fly-b", name: "Cable Rear-Delt Fly", target: "3 x 15-20" },
-      { id: "face-pull", name: "Face Pull", target: "2 x 12-20" },
-      { id: "cable-lateral-raise-b", name: "Cable Lateral Raise", target: "3 x 12-20/side" },
-      { id: "hammer-curl", name: "Dumbbell Hammer Curl", target: "2 x 10-15" },
-      { id: "cable-curl", name: "Cable Curl", target: "2 x 12-15" },
+      { id: "close-grip-pulldown", name: "Neutral or Close-Grip Lat Pulldown", target: "3 x 8-12", learnUrl: "https://www.youtube.com/watch?v=8hzVLzu-RJk" },
+      { id: "seated-cable-row", name: "Seated Cable Row or Low Cable Row", target: "3 x 8-12", learnUrl: "https://www.youtube.com/watch?v=vwHG9Jfu4sw" },
+      { id: "chest-supported-db-row-b", name: "Chest-Supported Dumbbell Row", target: "3 x 8-12", learnUrl: "https://www.youtube.com/watch?v=oNsqMW1gPiU" },
+      { id: "cable-rear-delt-fly-b", name: "Cable Rear-Delt Fly", target: "3 x 15-20", learnUrl: "https://www.youtube.com/watch?v=JENKmsEZQO8" },
+      { id: "face-pull", name: "Face Pull", target: "2 x 12-20", learnUrl: "https://www.youtube.com/watch?v=IeOqdw9WI90" },
+      { id: "cable-lateral-raise-b", name: "Cable Lateral Raise", target: "3 x 12-20/side", learnUrl: "https://www.youtube.com/watch?v=Sp8be0IFNvk" },
+      { id: "hammer-curl", name: "Dumbbell Hammer Curl", target: "2 x 10-15", learnUrl: "https://www.youtube.com/watch?v=lmIo_gVE8T4" },
+      { id: "cable-curl", name: "Cable Curl", target: "2 x 12-15", learnUrl: "https://www.youtube.com/watch?v=CrbTqNOlFgE" },
     ],
   },
   {
@@ -89,15 +89,15 @@ const DEFAULT_SPLIT_DAYS = [
     focus: "Second leg stimulus + V-taper accessories",
     notes: "This is not a max-effort hinge day. Keep lateral raises unless shoulders are irritated.",
     exercises: [
-      { id: "front-foot-elevated-split-squat", name: "Front-Foot Elevated Split Squat", target: "3 x 8-12/leg" },
-      { id: "hamstring-curl", name: "Cable or Dumbbell Hamstring Curl", target: "3 x 10-15/leg" },
-      { id: "romanian-deadlift-b", name: "Barbell, Smith, or DB Romanian Deadlift", target: "2 x 8-12" },
-      { id: "leg-extension-b", name: "Leg Extension", target: "2 x 12-20" },
-      { id: "standing-calf-raise-b", name: "Smith or DB Standing Calf Raise", target: "3 x 12-20" },
-      { id: "incline-db-press-volume", name: "Incline Dumbbell Press or Chest Press", target: "3 x 8-12" },
-      { id: "cable-lateral-raise-c", name: "Cable Lateral Raise", target: "4 x 12-20/side" },
-      { id: "curl-pressdown-superset", name: "DB Curl + Cable Pressdown Superset", target: "2 x 10-15 each" },
-      { id: "vacuum-practice", name: "Vacuum Practice", target: "3 x 20-30 sec" },
+      { id: "front-foot-elevated-split-squat", name: "Front-Foot Elevated Split Squat", target: "3 x 8-12/leg", learnUrl: "https://www.youtube.com/watch?v=_SZCACPCz20" },
+      { id: "hamstring-curl", name: "Cable or Dumbbell Hamstring Curl", target: "3 x 10-15/leg", learnUrl: "https://www.youtube.com/watch?v=bkwW1flKchc" },
+      { id: "romanian-deadlift-b", name: "Barbell, Smith, or DB Romanian Deadlift", target: "2 x 8-12", learnUrl: "https://www.youtube.com/watch?v=CQp5I9KgdXI" },
+      { id: "leg-extension-b", name: "Leg Extension", target: "2 x 12-20", learnUrl: "https://www.youtube.com/watch?v=06TrGrYBC5w" },
+      { id: "standing-calf-raise-b", name: "Smith or DB Standing Calf Raise", target: "3 x 12-20", learnUrl: "https://www.youtube.com/watch?v=wlqTemUXPXY" },
+      { id: "incline-db-press-volume", name: "Incline Dumbbell Press or Chest Press", target: "3 x 8-12", learnUrl: "https://www.youtube.com/watch?v=8fXfwG4ftaQ" },
+      { id: "cable-lateral-raise-c", name: "Cable Lateral Raise", target: "4 x 12-20/side", learnUrl: "https://www.youtube.com/watch?v=Sp8be0IFNvk" },
+      { id: "curl-pressdown-superset", name: "DB Curl + Cable Pressdown Superset", target: "2 x 10-15 each", learnUrl: "https://www.youtube.com/watch?v=sAq_ocpRh_I" },
+      { id: "vacuum-practice", name: "Vacuum Practice", target: "3 x 20-30 sec", learnUrl: "https://www.youtube.com/watch?v=cub3xhJXsAA" },
     ],
   },
   {
@@ -181,7 +181,7 @@ async function initialize() {
   const today = getDateString(new Date());
   weightDate.value = state.currentWeightDate || today;
   sessionDate.value = state.currentSessionDate || today;
-  state.activeDayId = state.activeDayId || inferDayFromDate(sessionDate.value);
+  state.activeDayId = state.activeDayId || "mon";
   state.ui = state.ui || {};
   state.ui.route = getRouteFromHash();
   state.meta = state.meta || { lastModifiedAt: null, lastSyncedAt: null };
@@ -230,9 +230,7 @@ function bindEvents() {
 
   sessionDate.addEventListener("change", () => {
     state.currentSessionDate = sessionDate.value;
-    state.activeDayId = inferDayFromDate(sessionDate.value);
     saveState();
-    renderTabs();
     renderSplitEditor();
     renderWorkout();
   });
@@ -355,6 +353,7 @@ function bindEvents() {
       id: `custom-${Date.now()}`,
       name: "",
       target: "",
+      learnUrl: "",
     });
   });
 
@@ -426,7 +425,7 @@ function renderTabs() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `tab-button${day.id === state.activeDayId ? " active" : ""}`;
-    button.textContent = `${day.label} ${day.name}`;
+    button.textContent = day.name;
     button.addEventListener("click", () => {
       state.activeDayId = day.id;
       state.ui.editingSet = null;
@@ -445,8 +444,8 @@ function renderWorkout() {
   const date = sessionDate.value || getDateString(new Date());
   const session = getSession(date, day.id);
 
-  todayLabel.textContent = `${day.label} • ${shortDate(date)}`;
-  dayMeta.textContent = `${day.name}: ${day.focus}. ${day.notes}`;
+  todayLabel.textContent = `${day.name} • ${shortDate(date)}`;
+  dayMeta.textContent = `Selected pattern: ${day.focus}. ${day.notes}`;
   exerciseList.innerHTML = "";
 
   day.exercises.forEach((exercise) => {
@@ -454,6 +453,7 @@ function renderWorkout() {
     const card = node.querySelector(".exercise-card");
     const name = node.querySelector(".exercise-name");
     const target = node.querySelector(".exercise-target");
+    const learnLinks = node.querySelector(".learn-links");
     const setCount = node.querySelector(".set-count");
     const weightInput = node.querySelector(".exercise-weight");
     const repsInput = node.querySelector(".exercise-reps");
@@ -470,6 +470,7 @@ function renderWorkout() {
 
     name.textContent = exercise.name;
     target.textContent = exercise.target;
+    renderLearnLinks(learnLinks, exercise);
     setCount.textContent = `${entries.length} set${entries.length === 1 ? "" : "s"}`;
 
     if (editing) {
@@ -754,6 +755,29 @@ function renderSetPills(container, entries, actions) {
   });
 }
 
+function renderLearnLinks(container, exercise) {
+  container.innerHTML = "";
+  const links = getExerciseLearnLinks(exercise);
+  links.forEach((link) => {
+    const anchor = document.createElement("a");
+    anchor.className = "learn-link";
+    anchor.href = link.url;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+    anchor.textContent = link.label;
+    container.appendChild(anchor);
+  });
+}
+
+function getExerciseLearnLinks(exercise) {
+  if (Array.isArray(exercise.learnLinks) && exercise.learnLinks.length) {
+    return exercise.learnLinks
+      .filter((link) => link?.url)
+      .map((link) => ({ label: link.label || "Learn", url: link.url }));
+  }
+  return exercise.learnUrl ? [{ label: "Learn", url: exercise.learnUrl }] : [];
+}
+
 function createInsightCard({ title, value, subtext, sparkValues = [] }) {
   const card = document.createElement("article");
   card.className = "insight-card";
@@ -831,6 +855,7 @@ function appendSplitExerciseRow(exercise) {
   row.dataset.exerciseId = exercise.id;
   node.querySelector(".split-exercise-name").value = exercise.name || "";
   node.querySelector(".split-exercise-target").value = exercise.target || "";
+  node.querySelector(".split-exercise-learn-url").value = getExerciseLearnLinks(exercise)[0]?.url || "";
   node.querySelector(".split-remove-exercise").addEventListener("click", () => {
     row.remove();
   });
@@ -850,6 +875,7 @@ function saveCurrentDaySplit() {
     .map((row, index) => {
       const name = row.querySelector(".split-exercise-name").value.trim();
       const target = row.querySelector(".split-exercise-target").value.trim();
+      const learnUrl = row.querySelector(".split-exercise-learn-url").value.trim();
       if (!name) {
         return null;
       }
@@ -857,6 +883,7 @@ function saveCurrentDaySplit() {
         id: row.dataset.exerciseId || `custom-${Date.now()}-${index}`,
         name,
         target: target || "3 x 8-12",
+        learnUrl,
       };
     })
     .filter(Boolean);
@@ -1327,12 +1354,6 @@ function prettifyExerciseId(exerciseId) {
     .join(" ");
 }
 
-function inferDayFromDate(dateString) {
-  const date = new Date(dateString);
-  const weekday = date.getDay();
-  return ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][weekday] || "mon";
-}
-
 function shortDate(dateString) {
   const date = new Date(`${dateString}T00:00:00`);
   return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(date);
@@ -1420,6 +1441,8 @@ function normalizeExercises(defaultExercises, exercises) {
     id: exercise.id || defaultExercises[index]?.id || `custom-${index}`,
     name: exercise.name || defaultExercises[index]?.name || "Exercise",
     target: exercise.target || defaultExercises[index]?.target || "3 x 8-12",
+    learnUrl: exercise.learnUrl || defaultExercises[index]?.learnUrl || "",
+    learnLinks: exercise.learnLinks || defaultExercises[index]?.learnLinks || [],
   }));
 }
 

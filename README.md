@@ -32,7 +32,8 @@ After the first load, the app is cached offline, so it should still open in the 
 ## What it does
 
 - Tracks daily bodyweight
-- Tracks every set for the 5-gym-day society-gym V-taper split, plus sport/recovery days
+- Tracks every set for society-gym V-taper split patterns you can choose on any date
+- Adds small tutorial links for exercises with form videos in the split guide
 - Lets you edit or delete logged sets if you mistype a number
 - Pre-fills weight and reps from the last matching session
 - Shows a dashboard for bodyweight trend and key lift progress
