@@ -2,102 +2,129 @@ const STORAGE_KEY = "iron-ledger-v3";
 const LEGACY_KEYS = ["iron-ledger-v2", "iron-ledger-v1"];
 const SYNC_DEBOUNCE_MS = 1200;
 const SNAPSHOT_TABLE = "user_snapshots";
+const PLAN_VERSION = 3;
 
 const DEFAULT_SPLIT_DAYS = [
   {
     id: "mon",
     label: "Mon",
     name: "Pull A",
-    focus: "Lat width + biceps",
-    notes: "Freshest energy goes to lats. Hit full stretch and clean scapular control.",
+    focus: "Lat width + rear delts",
+    notes: "Freshest energy goes to lats. Keep pulldowns and lat rows clean, controlled, and fully stretched.",
     exercises: [
-      { id: "lat-pulldown", name: "Lat Pulldown", target: "4 x 8-12" },
-      { id: "single-arm-row", name: "Single-Arm Cable Row", target: "3 x 8-12" },
-      { id: "neutral-pulldown", name: "Neutral/V-Bar Pulldown", target: "3 x 10-12" },
-      { id: "straight-arm-pulldown", name: "Straight-Arm Pulldown", target: "2 x 12-15" },
-      { id: "incline-db-curl", name: "Incline Dumbbell Curl", target: "3 x 8-12" },
-      { id: "hammer-curl", name: "Hammer Curl", target: "2 x 10-12" },
+      { id: "lat-pulldown", name: "Lat Pulldown, Medium/Wide Grip", target: "4 x 6-10" },
+      { id: "single-arm-cable-lat-row", name: "Single-Arm Cable Lat Row", target: "3 x 8-12/side" },
+      { id: "chest-supported-db-row-a", name: "Chest-Supported Dumbbell Row", target: "3 x 8-12" },
+      { id: "straight-arm-pulldown", name: "Straight-Arm Cable Pulldown", target: "3 x 12-15" },
+      { id: "cable-rear-delt-fly-a", name: "Cable Rear-Delt Fly", target: "4 x 15-20" },
+      { id: "incline-db-curl", name: "Incline Dumbbell Curl", target: "2 x 8-12" },
     ],
   },
   {
     id: "tue",
     label: "Tue",
-    name: "Push A",
-    focus: "Upper chest + side delts + triceps",
-    notes: "Upper chest first. Delts are a visible priority, so keep lateral raises strict.",
+    name: "Lower A",
+    focus: "Smith squat + hamstrings",
+    notes: "Train legs hard enough for balance, but keep volume capped so upper-body priority recovers.",
     exercises: [
-      { id: "incline-db-press-heavy", name: "Incline Dumbbell Press", target: "4 x 6-10" },
-      { id: "flat-db-press", name: "Flat Dumbbell Press", target: "3 x 8-12" },
-      { id: "low-high-fly", name: "Low-to-High Cable Fly", target: "2 x 12-15" },
-      { id: "seated-db-ohp", name: "Seated Dumbbell OHP", target: "2-3 x 6-10" },
-      { id: "cable-lateral-raise-a", name: "Cable Lateral Raise", target: "4 x 12-20" },
-      { id: "rope-pressdown", name: "Rope Pressdown", target: "3 x 10-15" },
+      { id: "smith-squat", name: "Smith Machine Squat", target: "3 x 6-10" },
+      { id: "db-romanian-deadlift-a", name: "Dumbbell Romanian Deadlift", target: "3 x 8-12" },
+      { id: "bulgarian-split-squat", name: "Bulgarian Split Squat", target: "2 x 8-12/leg" },
+      { id: "leg-extension-a", name: "Leg Extension", target: "2 x 12-15" },
+      { id: "standing-calf-raise-a", name: "Standing Calf Raise", target: "3 x 10-20" },
+      { id: "cable-crunch", name: "Cable Crunch", target: "3 x 10-15" },
     ],
   },
   {
     id: "wed",
     label: "Wed",
-    name: "Legs A",
-    focus: "Quads + abs",
-    notes: "You are not ignoring legs. Keep the session tight and move with intent.",
+    name: "Push A",
+    focus: "Upper chest + side delts",
+    notes: "Upper chest and lateral raises are the visual priorities. Keep overhead pressing controlled.",
     exercises: [
-      { id: "back-squat", name: "Back Squat", target: "4 x 5-8" },
-      { id: "leg-press", name: "Leg Press", target: "3 x 10-15" },
-      { id: "bulgarian-split-squat", name: "Bulgarian Split Squat", target: "2-3 x 8-12" },
-      { id: "leg-extension", name: "Leg Extension", target: "2 x 12-15" },
-      { id: "standing-calf-raise", name: "Standing Calf Raise", target: "4 x 10-15" },
-      { id: "cable-crunch", name: "Cable Crunch", target: "3 x 12-20" },
+      { id: "incline-db-press-heavy", name: "Incline Dumbbell Press", target: "4 x 6-10" },
+      { id: "chest-press-machine", name: "Chest Press Machine", target: "2 x 8-12" },
+      { id: "seated-db-shoulder-press", name: "Seated Dumbbell Shoulder Press", target: "2 x 6-10" },
+      { id: "cable-lateral-raise-a", name: "Cable Lateral Raise", target: "4 x 12-20/side" },
+      { id: "db-lateral-raise-a", name: "Dumbbell Lateral Raise", target: "3 x 15-25" },
+      { id: "triceps-pressdown-a", name: "Rope or Bar Triceps Pressdown", target: "3 x 10-15" },
+      { id: "overhead-cable-triceps-extension-a", name: "Overhead Cable Triceps Extension", target: "2 x 12-15" },
     ],
   },
   {
     id: "thu",
     label: "Thu",
-    name: "Pull B",
-    focus: "Thickness + rear delts + biceps",
-    notes: "Rows and rear delts build the upper-back shelf that makes the taper look bigger.",
+    name: "Sport + Mobility",
+    focus: "Tennis or badminton + shoulder/hip mobility",
+    notes: "Keep sport moderate if Friday pull performance matters. Use this as recovery, not another max day.",
     exercises: [
-      { id: "barbell-row", name: "Barbell or Chest-Supported Row", target: "4 x 6-10" },
-      { id: "seated-cable-row", name: "Seated Cable Row", target: "3 x 8-12" },
-      { id: "close-grip-pulldown", name: "Close-Grip Pulldown", target: "3 x 8-12" },
-      { id: "rear-delt-fly-a", name: "Rear-Delt Fly", target: "4 x 12-20" },
-      { id: "ez-curl", name: "EZ-Bar Curl", target: "3 x 8-12" },
-      { id: "preacher-curl", name: "Preacher Curl", target: "2 x 10-12" },
+      { id: "tennis-or-badminton", name: "Tennis or Badminton", target: "Moderate intensity" },
+      { id: "hip-flexor-stretch", name: "Hip Flexor Stretch", target: "30 sec/side" },
+      { id: "calf-stretch", name: "Calf Stretch", target: "30 sec/side" },
+      { id: "thoracic-rotation", name: "Thoracic Rotation", target: "8 reps/side" },
+      { id: "external-rotation", name: "Cable External Rotation", target: "2 x 15/side" },
     ],
   },
   {
     id: "fri",
     label: "Fri",
-    name: "Push B",
-    focus: "Delts + chest + triceps",
-    notes: "This day keeps the shoulder cap growing. Don’t let ego ruin cable or fly form.",
+    name: "Pull B",
+    focus: "Upper-back thickness + delts",
+    notes: "Use supported rows so your lower back is fresh enough for Saturday.",
     exercises: [
-      { id: "cable-lateral-raise-b", name: "Cable Lateral Raise", target: "4 x 12-20" },
-      { id: "incline-db-press-volume", name: "Incline Dumbbell Press", target: "3 x 8-12" },
-      { id: "flat-db-press-volume", name: "Flat Dumbbell Press", target: "3 x 8-12" },
-      { id: "pec-deck", name: "Pec Deck or Cable Fly", target: "2 x 12-15" },
-      { id: "face-pull", name: "Face Pull / Rear-Delt Cable Fly", target: "3 x 12-20" },
-      { id: "overhead-rope-extension", name: "Overhead Rope Extension", target: "3 x 10-15" },
+      { id: "close-grip-pulldown", name: "Neutral or Close-Grip Lat Pulldown", target: "3 x 8-12" },
+      { id: "seated-cable-row", name: "Seated Cable Row or Low Cable Row", target: "3 x 8-12" },
+      { id: "chest-supported-db-row-b", name: "Chest-Supported Dumbbell Row", target: "3 x 8-12" },
+      { id: "cable-rear-delt-fly-b", name: "Cable Rear-Delt Fly", target: "3 x 15-20" },
+      { id: "face-pull", name: "Face Pull", target: "2 x 12-20" },
+      { id: "cable-lateral-raise-b", name: "Cable Lateral Raise", target: "3 x 12-20/side" },
+      { id: "hammer-curl", name: "Dumbbell Hammer Curl", target: "2 x 10-15" },
+      { id: "cable-curl", name: "Cable Curl", target: "2 x 12-15" },
     ],
   },
   {
     id: "sat",
     label: "Sat",
-    name: "Legs B + Arms",
-    focus: "Hamstrings + calves + arms",
-    notes: "Posterior chain first, then arm volume. This supports the aesthetic without wasting time.",
+    name: "Lower B + Chest/Delts/Arms",
+    focus: "Second leg stimulus + V-taper accessories",
+    notes: "This is not a max-effort hinge day. Keep lateral raises unless shoulders are irritated.",
     exercises: [
-      { id: "romanian-deadlift", name: "Romanian Deadlift", target: "4 x 6-10" },
-      { id: "leg-curl", name: "Lying / Seated Leg Curl", target: "3 x 10-15" },
-      { id: "walking-lunge", name: "Walking Lunges / Hack Squat", target: "2-3 x 8-12" },
-      { id: "seated-calf-raise", name: "Seated Calf Raise", target: "4 x 12-20" },
-      { id: "bayesian-curl", name: "Cable / Bayesian Curl", target: "3 x 10-15" },
-      { id: "skull-crusher", name: "Skull Crusher / Cable Extension", target: "3 x 10-15" },
-      { id: "vacuum-practice", name: "Vacuum Practice", target: "3 sets" },
+      { id: "front-foot-elevated-split-squat", name: "Front-Foot Elevated Split Squat", target: "3 x 8-12/leg" },
+      { id: "hamstring-curl", name: "Cable or Dumbbell Hamstring Curl", target: "3 x 10-15/leg" },
+      { id: "romanian-deadlift-b", name: "Barbell, Smith, or DB Romanian Deadlift", target: "2 x 8-12" },
+      { id: "leg-extension-b", name: "Leg Extension", target: "2 x 12-20" },
+      { id: "standing-calf-raise-b", name: "Smith or DB Standing Calf Raise", target: "3 x 12-20" },
+      { id: "incline-db-press-volume", name: "Incline Dumbbell Press or Chest Press", target: "3 x 8-12" },
+      { id: "cable-lateral-raise-c", name: "Cable Lateral Raise", target: "4 x 12-20/side" },
+      { id: "curl-pressdown-superset", name: "DB Curl + Cable Pressdown Superset", target: "2 x 10-15 each" },
+      { id: "vacuum-practice", name: "Vacuum Practice", target: "3 x 20-30 sec" },
+    ],
+  },
+  {
+    id: "sun",
+    label: "Sun",
+    name: "Sport / Recovery",
+    focus: "Badminton, tennis, swim, or full recovery",
+    notes:
+      "Keep this easy if elbows, shoulders, grip, or legs feel beaten up before Monday Pull A.",
+    exercises: [
+      { id: "badminton-tennis-easy", name: "Badminton or Tennis", target: "Easy to moderate" },
+      { id: "easy-swim-walk", name: "Easy Swim or Walk", target: "20-30 min" },
+      { id: "cat-cow", name: "Cat-Cow", target: "8 reps" },
+      { id: "ninety-ninety-hip-switch", name: "90/90 Hip Switch", target: "8 reps/side" },
+      { id: "wall-slide", name: "Wall Slide", target: "10 reps" },
+      { id: "deep-squat-hold", name: "Deep Bodyweight Squat Hold", target: "20-30 sec" },
     ],
   },
 ];
 
-const dashboardExercises = ["lat-pulldown", "incline-db-press-heavy", "back-squat", "romanian-deadlift"];
+const dashboardExercises = [
+  "lat-pulldown",
+  "cable-lateral-raise-a",
+  "incline-db-press-heavy",
+  "smith-squat",
+  "db-romanian-deadlift-a",
+];
 
 const state = loadState();
 let supabase = null;
@@ -158,7 +185,7 @@ async function initialize() {
   state.ui = state.ui || {};
   state.ui.route = getRouteFromHash();
   state.meta = state.meta || { lastModifiedAt: null, lastSyncedAt: null };
-  state.plan = state.plan || { days: cloneDefaultSplitDays() };
+  state.plan = state.plan || createDefaultPlan();
   state.sync = state.sync || {
     projectUrl: "",
     anonKey: "",
@@ -1303,7 +1330,7 @@ function prettifyExerciseId(exerciseId) {
 function inferDayFromDate(dateString) {
   const date = new Date(dateString);
   const weekday = date.getDay();
-  return [null, "mon", "tue", "wed", "thu", "fri", "sat"][weekday] || "mon";
+  return ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][weekday] || "mon";
 }
 
 function shortDate(dateString) {
@@ -1359,12 +1386,17 @@ function normalizeState(raw) {
 }
 
 function normalizePlan(plan) {
-  const defaultDays = cloneDefaultSplitDays();
+  const defaultPlan = createDefaultPlan();
+  const defaultDays = defaultPlan.days;
   if (!plan?.days?.length) {
-    return { days: defaultDays };
+    return defaultPlan;
+  }
+  if (plan.version !== PLAN_VERSION) {
+    return defaultPlan;
   }
 
   return {
+    version: PLAN_VERSION,
     days: defaultDays.map((defaultDay) => {
       const existingDay = plan.days.find((item) => item.id === defaultDay.id);
       if (!existingDay) {
@@ -1393,6 +1425,13 @@ function normalizeExercises(defaultExercises, exercises) {
 
 function cloneDefaultSplitDays() {
   return JSON.parse(JSON.stringify(DEFAULT_SPLIT_DAYS));
+}
+
+function createDefaultPlan() {
+  return {
+    version: PLAN_VERSION,
+    days: cloneDefaultSplitDays(),
+  };
 }
 
 async function loadSupabaseModule() {

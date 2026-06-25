@@ -32,7 +32,7 @@ After the first load, the app is cached offline, so it should still open in the 
 ## What it does
 
 - Tracks daily bodyweight
-- Tracks every set for the 6-day V-taper split
+- Tracks every set for the 5-gym-day society-gym V-taper split, plus sport/recovery days
 - Lets you edit or delete logged sets if you mistype a number
 - Pre-fills weight and reps from the last matching session
 - Shows a dashboard for bodyweight trend and key lift progress
@@ -65,3 +65,7 @@ The app now supports optional account-based sync.
 - Cloud sync is automatic a moment later when signed in and online.
 - If cloud data is newer on sign-in, the app pulls it down automatically.
 - You can always force `Pull Cloud Snapshot` or `Sync Now`.
+
+## Deployment updates
+
+The service worker cache name is bumped when the app changes, so installed copies pick up the latest deployed files after GitHub Pages publishes the new commit.
